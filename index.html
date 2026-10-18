@@ -82,6 +82,14 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .skin{font:inherit;display:flex;flex-direction:column;align-items:center;gap:calc(var(--u)*2);background:#24406a;border:calc(var(--u)*2) solid transparent;border-radius:calc(var(--u)*10);padding:calc(var(--u)*4);color:#fff;font-size:calc(var(--u)*11.5);font-weight:800;cursor:pointer}
 .skin.on{border-color:var(--ember)}
 .skin span{line-height:1.15;text-align:center}
+/* крупный просмотр покупки */
+.pv{position:absolute;inset:0;background:#050b16d9;display:flex;align-items:center;justify-content:center;padding:calc(var(--u)*20);box-sizing:border-box}
+.pvBox{width:100%;max-width:calc(var(--u)*440);background:#162744;border-radius:calc(var(--u)*20);padding:calc(var(--u)*18);box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:calc(var(--u)*10);box-shadow:0 calc(var(--u)*10) calc(var(--u)*40) #0009}
+.pvBox canvas{position:static;inset:auto;display:block;width:calc(var(--u)*240);height:calc(var(--u)*285);background:radial-gradient(circle at 50% 70%,#2c4a78,#162744 70%);border-radius:calc(var(--u)*16)}
+.pvIc{font-size:calc(var(--u)*96);line-height:1}
+.pvBox h3{font-family:var(--display);font-weight:400;font-size:calc(var(--u)*28);margin:0}
+.pvBox p{margin:0;font-size:calc(var(--u)*16);color:#c9d9ec;line-height:1.35}
+.pvBox .pvHave{color:#bfe8ff;font-weight:900}
 .skin .pr{color:#ffd27a}
 .skin img{height:calc(var(--u)*62);width:auto}
 .skin:disabled{opacity:.45;cursor:default}
@@ -116,13 +124,20 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
     <div class="shopHead"><h2 id="shopTitle"></h2><span class="coins" id="coins"></span></div>
     <div class="shopList" id="shopList"></div>
     <button class="btn ghost" id="shopClose" type="button"></button>
+    <div id="pv" class="pv" hidden><div class="pvBox">
+      <canvas id="pvCv" width="320" height="380"></canvas><div id="pvIc" class="pvIc"></div>
+      <h3 id="pvName"></h3><p id="pvDesc"></p><p id="pvHave" class="pvHave"></p>
+      <button class="btn" id="pvOk" type="button"></button><button class="btn ghost" id="pvNo" type="button"></button>
+    </div></div>
   </div>
   <form id="reg" class="ov" hidden>
     <h2 id="regTitle"></h2>
     <p id="regText"></p>
-    <input id="regName" type="text" maxlength="16" autocomplete="nickname" required>
+    <input id="regName" type="text" maxlength="16" autocomplete="username" required>
+    <input id="regPass" type="password" maxlength="6" autocomplete="current-password" required>
     <p id="regMsg" class="earned"></p>
     <button class="btn" id="regSave" type="submit"></button>
+    <button class="btn ghost" id="regOut" type="button" hidden></button>
     <button class="btn ghost" id="regCancel" type="button"></button>
   </form>
   <div id="loading">…</div>
@@ -149,7 +164,7 @@ const TX={
     help:['<b>Нажми на своего бойца и тяни палец вниз</b>: пунктир к врагу растёт. Отпусти, когда он <b>зелёный</b>: жёлтый будет недолёт, красный перелёт.',
       '<b>Веди палец вбок</b>: боец идёт и уворачивается. Можно одновременно с замахом.',
       '<b>Прячься за укрытиями</b>: снежки банды в них застревают. Банда тоже прячется и выглядывает.',
-      '<b>Уровни</b>: двор, улица, парк. Три волны, босс и главный босс, потом новый район.',
+      '<b>5 этапов</b>: во дворе 4 волны и Главари Айсберги, на улице снеговики, в парке снегоуборщики. С каждым этапом боссов на одного больше.',
       '<b>Холи</b> сама ловит снежки рядом, по кнопке бежит и сваливает врага.',
       '<b>Лёд</b> замораживает в глыбу, <b>бомба</b> бьёт по площади, <b>град</b> сыплет снежки на всех врагов.',
       '<b>Тапни по снежку</b>, который летит в тебя, и отобьёшь его.'],
@@ -165,7 +180,7 @@ const TX={
     help:['<b>Press your fighter and pull your finger down</b>: the dotted line to the enemy grows. Let go when it turns <b>green</b>: yellow falls short, red flies too far.',
       '<b>Slide your finger sideways</b>: your fighter walks and dodges, even while winding up.',
       '<b>Hide behind cover</b>: enemy snowballs get stuck in it. The gang hides too and peeks out to throw.',
-      '<b>Levels</b>: yard, street, park. Three waves, a boss and a main boss, then a new place.',
+      '<b>5 stages</b>: 4 waves and Iceberg bosses in the yard, snowmen on the street, snowplows in the park. One more boss each stage.',
       '<b>Holy</b> catches snowballs nearby. Tap her button and she knocks an enemy down.',
       '<b>Ice</b> freezes enemies solid, <b>bomb</b> hits an area, <b>hail</b> rains snowballs on every enemy.',
       '<b>Tap a snowball</b> flying at you to hit it back.'],
@@ -181,31 +196,31 @@ const TX={
 const T=k=>TX[LANG][k];
 // магазин, этапы, финал
 Object.assign(TX.ru,{shop:'Магазин',close:'Закрыть',coinsLbl:'Снежинки',have:'Есть: ',buy:'Купить',bought:'Куплено',aimOn:'Включён',aimOff:'Выключен',
-  avalN:'Снежная лавина',avalD:'Сметает и накрывает всех врагов и боссов на поле разом. Одноразовая.',
+  avalN:'Снежная лавина',avalD:'Сметает и накрывает всех врагов и боссов на поле разом. Можно применить 1 раз в каждом уровне, пока не проиграешь. После проигрыша покупается заново.',
   gunN:'Снежное ружьё',gunD:'Выпускает очередь из 3 снежков подряд. 3 очереди на волну.',
   aimN:'Автоприцел',aimD:'Просто нажми на бойца: бросок сам летит точно в цель с нужной силой. Покупается навсегда.',
   skinsT:'Одежда',basic:'Обычная',wear:'Надеть',worn:'Надето',
   gunB:'Ружьё ×',avalB:'Лавина ×',avalanche:'Снежная лавина!',auto:'Автоприцел',stage:'Этап ',final:'Финал',finalSay:'Только боссы! ',
   ovWin:'Все районы наши!',ovWinSub:'Банда и все боссы разбиты. Игра пройдена!',allWin:'Игра пройдена!',earned:'Заработано снежинок: +',bossDown:'Босс повержен!',
   skinName:{emo:'Эмо',pajama:'Пижама',school:'Школьная форма',carnival:'Карнавал',beach:'Пляжная вечеринка'},
-  active:'Активно',regBtn:'Регистрация',regTitle:'Регистрация',regName:'Имя игрока',regSave:'Сохранить',regCancel:'Отмена',
-  regText:'Придумай имя игрока. После регистрации снежинки, лавины и одежда сохранятся навсегда на этом телефоне.',
-  regDone:'Готово! Всё будет сохраняться.',player:'👤 ',
-  shopNote:'Без регистрации покупки и снежинки хранятся, пока игра открыта.',shopReg:'Зарегистрироваться'});
+  active:'Активно',regBtn:'Вход / Регистрация',regTitle:'Вход или регистрация',regName:'Имя игрока',regPassPh:'Пароль (до 6 символов)',regSave:'Войти',regCancel:'Отмена',regOut:'Выйти',
+  regText:'Имя можно на русском или английском, пароль — любые буквы и цифры, до 6 символов. Если такого игрока ещё нет, он создастся. Снежинки и одежда сохранятся навсегда на этом телефоне.',
+  regDone:'Готово! Всё будет сохраняться.',regNew:'Игрок создан! Всё будет сохраняться.',regIn:'С возвращением!',regBad:'Неверный пароль для этого имени.',regShort:'Введи имя (от 2 букв) и пароль.',player:'👤 ',
+  shopNote:'Без регистрации одежда сохраняется до проигрыша, а снежинки — пока игра открыта.',noCoins:'Не хватает',taunts:['Ха-ха-ха!','Бе-бе-бе!','Слабаки!','Мы лучшие!','Йо-хо-хо!','Догони!'],shopReg:'Зарегистрироваться'});
 TX.ru.gunD='Выпускает очередь из 3 снежков подряд, 3 очереди на волну. Действует до конца прохождения или пока не закроешь игру.';
 TX.ru.aimD='Просто нажми на бойца: бросок сам летит точно в цель. Действует до конца прохождения или пока не закроешь игру.';
 Object.assign(TX.en,{shop:'Shop',close:'Close',coinsLbl:'Snowflakes',have:'You have: ',buy:'Buy',bought:'Owned',aimOn:'On',aimOff:'Off',
-  avalN:'Snow avalanche',avalD:'Sweeps away and buries every enemy and boss on the field at once. Single use.',
+  avalN:'Snow avalanche',avalD:'Sweeps away and buries every enemy and boss on the field at once. Use it once per level until you lose. After a loss, buy it again.',
   gunN:'Snow blaster',gunD:'Fires a burst of 3 snowballs in a row. 3 bursts per wave.',
   aimN:'Auto-aim',aimD:'Just tap your fighter: the throw flies straight to the target with perfect power. Yours forever.',
   skinsT:'Outfits',basic:'Classic',wear:'Wear',worn:'Wearing',
   gunB:'Blaster ×',avalB:'Avalanche ×',avalanche:'Snow avalanche!',auto:'Auto-aim',stage:'Stage ',final:'Finale',finalSay:'Bosses only! ',
   ovWin:'Every place is ours!',ovWinSub:'The gang and all the bosses are beaten. You beat the game!',allWin:'You beat the game!',earned:'Snowflakes earned: +',bossDown:'Boss defeated!',
   skinName:{emo:'Emo',pajama:'Pajamas',school:'School uniform',carnival:'Carnival',beach:'Beach party'},
-  active:'Active',regBtn:'Sign up',regTitle:'Sign up',regName:'Player name',regSave:'Save',regCancel:'Cancel',
-  regText:'Pick a player name. After signing up, your snowflakes, avalanches and outfits are saved forever on this phone.',
-  regDone:'Done! Everything will be saved.',player:'👤 ',
-  shopNote:'Without signing up, purchases and snowflakes last only while the game is open.',shopReg:'Sign up'});
+  active:'Active',regBtn:'Log in / Sign up',regTitle:'Log in or sign up',regName:'Player name',regPassPh:'Password (up to 6)',regSave:'Log in',regCancel:'Cancel',regOut:'Log out',
+  regText:'Any name in any language, and a simple password: any letters or digits, up to 6. If the player does not exist yet, it is created. Snowflakes and outfits are saved forever on this phone.',
+  regDone:'Done! Everything will be saved.',regNew:'Player created! Everything will be saved.',regIn:'Welcome back!',regBad:'Wrong password for this name.',regShort:'Enter a name (2+ letters) and a password.',player:'👤 ',
+  shopNote:'Without signing up, outfits last until you lose and snowflakes last while the game is open.',noCoins:'Not enough',taunts:['Ha-ha-ha!','Nyah-nyah!','Too slow!','We rule!','Woo-hoo!','Catch us!'],shopReg:'Sign up'});
 TX.en.gunD='Fires a burst of 3 snowballs, 3 bursts per wave. Lasts until you beat every stage or close the game.';
 TX.en.aimD='Just tap your fighter: the throw flies straight to the target. Lasts until you beat every stage or close the game.';
 /* ================= КОПИЛКА, ПОКУПКИ И ИГРОК =================
@@ -213,16 +228,33 @@ TX.en.aimD='Just tap your fighter: the throw flies straight to the target. Lasts
    после регистрации — навсегда на этом устройстве (localStorage).
    Автоприцел и ружьё куплены «на прохождение»: до закрытия игры или до победы над всеми этапами. */
 const store=(st,k,v)=>{ try{ if(v===undefined) return JSON.parse(st.getItem(k)||'null'); st.setItem(k,JSON.stringify(v)); }catch(e){ return null; } };
+// игроки этого устройства: имя → простой пароль (в виде хэша) и сохранения
+const ACC=store(localStorage,'snowbark.accounts')||{};
+const accKey=n=>n.trim().toLowerCase();
+const passHash=s=>{ let h=5381; for(const ch of String(s)) h=((h<<5)+h+ch.codePointAt(0))|0; return 'h'+(h>>>0).toString(36); };
 let PROFILE=store(localStorage,'snowbark.profile');
-const SAVE=Object.assign({coins:0,aval:0,skins:{},own:{}},(PROFILE?store(localStorage,'snowbark.save'):store(sessionStorage,'snowbark.session'))||{});
-function save(){ if(PROFILE) store(localStorage,'snowbark.save',SAVE); else store(sessionStorage,'snowbark.session',SAVE); }
-// регистрация: переносим всё набранное в постоянное хранилище (и забираем старые сохранения с этого устройства)
-function register(name){
-  const old=store(localStorage,'snowbark.save');
-  if(old&&!PROFILE){ SAVE.coins=Math.max(SAVE.coins,old.coins||0); SAVE.aval=Math.max(SAVE.aval,old.aval||0); Object.assign(SAVE.own,old.own||{}); }
-  PROFILE={name,since:Date.now()}; store(localStorage,'snowbark.profile',PROFILE); save();
+// переносим вход из версии 16 (только имя) в новую систему: пароль задастся при следующем входе
+if(PROFILE&&!PROFILE.key){ const k=accKey(PROFILE.name); if(!ACC[k]) ACC[k]={name:PROFILE.name,pass:null,save:store(localStorage,'snowbark.save')||{}}; PROFILE={key:k,name:PROFILE.name}; store(localStorage,'snowbark.accounts',ACC); store(localStorage,'snowbark.profile',PROFILE); }
+if(PROFILE&&!ACC[PROFILE.key]) PROFILE=null;
+const EMPTY=()=>({coins:0,skins:{},own:{}});
+const SAVE=Object.assign(EMPTY(),(PROFILE?ACC[PROFILE.key].save:store(sessionStorage,'snowbark.session'))||{});
+function setSave(d){ for(const k of Object.keys(SAVE)) delete SAVE[k]; Object.assign(SAVE,EMPTY(),d||{}); }
+function save(){ if(PROFILE){ ACC[PROFILE.key].save=JSON.parse(JSON.stringify(SAVE)); store(localStorage,'snowbark.accounts',ACC); } else store(sessionStorage,'snowbark.session',SAVE); }
+// вход или регистрация: если имени нет — создаём игрока (с тем, что уже набрано), если есть — проверяем пароль
+function login(name,pass){
+  const k=accKey(name), a=ACC[k], h=passHash(pass);
+  if(a&&a.pass&&a.pass!==h) return 'bad';
+  const cur=JSON.parse(JSON.stringify(SAVE));
+  if(!a) ACC[k]={name:name.trim(),pass:h,save:cur};
+  else { if(!a.pass) a.pass=h; const s=Object.assign(EMPTY(),a.save||{}); if(!PROFILE){ s.coins+=cur.coins||0; Object.assign(s.own,cur.own); } a.save=s; }
+  PROFILE={key:k,name:ACC[k].name}; store(localStorage,'snowbark.profile',PROFILE); setSave(ACC[k].save); save(); store(sessionStorage,'snowbark.session',EMPTY());
+  return a?'in':'new';
 }
-const RUN={aim:false,gun:false};
+function logout(){ if(PROFILE) save(); PROFILE=null; try{ localStorage.removeItem('snowbark.profile'); }catch(e){} setSave(EMPTY()); save(); }
+// без регистрации одежда живёт до проигрыша или до конца игры
+function dropGuestClothes(){ if(PROFILE) return; SAVE.own={}; SAVE.skins={}; save(); }
+// покупки на прохождение: автоприцел и ружьё — до закрытия игры или победы, лавина — до проигрыша (по одной на уровень)
+const RUN={aim:false,gun:false,aval:false};
 const PRICE={aval:4000,gun:2000,aim:3000};
 // стили одежды: id и цена (одинаковые для всех бойцов)
 const STYLES=[['emo',1500],['pajama',1000],['school',1200],['carnival',2000],['beach',1800]];
@@ -300,7 +332,7 @@ function applyLang(){
   if($('fsBtn')) $('fsBtn').textContent=T(isFull&&isFull()?'norm':'full');
   updateShopBtns(); updateProfBtn();
 }
-const VERSION=16;
+const VERSION=17;
 const cv=$('cv'),stage=$('stage'),wrap=$('wrap');
 let ctx=cv.getContext('2d');
 let scale=1,dpr=1,EX=0;
@@ -405,13 +437,14 @@ const SONGS={
     lead:['D5 D5 . F5 . D5 A5 .','Bb4 Bb4 . D5 . F5 E5 D5','C5 C5 . E5 . G5 F5 E5','A4 . C#5 . E5 . A5 .']},
   // короткие вставки: начало волны и пройденный уровень
   wave:{bpm:150,loop:false,style:'none',sparkle:true,vol:0.3,roots:[],chords:[['C4','E4','G4','B4']],lead:['C5 E5 G5 . C6 - - .']},
-  level:{bpm:140,loop:false,style:'none',sparkle:true,vol:0.32,roots:[],chords:[['C4','E4','G4'],['F3','A3','C4'],['G3','B3','D4','G4']],
-    lead:['G4 C5 E5 G5 - E5 G5 -','A5 - F5 - A5 C6 - .','B5 - D6 - G6 - - .']},
-  // победа над боссом: короткие фанфары «духовыми»
-  bossWin:{bpm:156,loop:false,style:'none',saw:true,vol:0.32,roots:[],chords:[['C4','E4','G4'],['F4','A4','C5'],['G4','C5','E5','G5']],
+  // уровень пройден: быстрая громкая победная песня с барабанами и басом
+  level:{bpm:168,loop:false,style:'drive',saw:true,vol:0.46,roots:['C2','A1','F2','G2'],chords:[['C4','E4','G4'],['A3','C4','E4'],['F3','A3','C4'],['G3','B3','D4']],
+    lead:['C5 C5 G4 C5 E5 . G5 .','A5 G5 E5 C5 D5 . E5 .','F5 F5 A5 F5 C6 . A5 .','G5 . B5 . D6 - G6 .']},
+  // победа над боссом: короткие фанфары «духовыми» с барабанами
+  bossWin:{bpm:156,loop:false,style:'drive',saw:true,vol:0.44,roots:['C2','F2','G2'],chords:[['C4','E4','G4'],['F4','A4','C5'],['G4','C5','E5','G5']],
     lead:['G4 . C5 . E5 G5 C6 .','A5 - F5 A5 C6 - D6 -','E6 - - - G6 - - .']},
-  win:{bpm:160,loop:false,style:'none',sparkle:true,vol:0.3,roots:['C3','C3'],chords:[['C4','E4','G4'],['C4','E4','G4']],
-    lead:['C5 E5 G5 C6 - - E6 -','G6 - - - - - - .']},
+  win:{bpm:168,loop:false,style:'drive',saw:true,vol:0.46,roots:['C2','F2','G2','C2'],chords:[['C4','E4','G4'],['F3','A3','C4'],['G3','B3','D4'],['C4','E4','G4','C5']],
+    lead:['C5 E5 G5 C6 . G5 C6 E6','F5 A5 C6 F6 . C6 A5 F5','G5 B5 D6 G6 . D6 B5 G5','C6 - E6 - G6 - - .']},
   lose:{bpm:118,loop:false,style:'none',saw:true,vol:0.3,roots:[],chords:[],
     lead:['G4 - - F#4 - - F4 -','- E4 - - - - - .']}
 };
@@ -548,18 +581,16 @@ const LOCS=[
   {key:'park',name:'Парк',song:'park',mid:['plow'],main:['snowman','iceberg'],
    covers:[['tree',110,745,'p'],['bush',335,752,'p'],['tree',270,415,'e'],['bush',440,432,'e']]}
 ];
-// этапы: 1 — по одному боссу, 2 — по два, 3 — по три, 4 (финал) — только боссы одного вида разного размера и цвета
-const STAGES=4, LAST_LEVEL=LOCS.length*STAGES;
+// 5 этапов по 3 уровня. В этапе N: уровень 1 (двор) — 4 волны банды, потом N Главарей Айсбергов;
+// уровень 2 (улица) — N снеговиков; уровень 3 (парк) — N снегоуборщиков. Рядом с боссами всегда воюет банда.
+const STAGES=5, LAST_LEVEL=LOCS.length*STAGES;
 const stageOf=L=>Math.min(STAGES,Math.floor((L-1)/LOCS.length)+1);
-const BOSS_POOL=['iceberg','snowman','plow'];
-function bossList(base,k){ const out=base.slice(); let i=1; while(out.length<k){ out.push(BOSS_POOL[(BOSS_POOL.indexOf(base[0])+i)%BOSS_POOL.length]); i++; } return out; }
+const LEVEL_BOSS=['iceberg','snowman','plow'];
 function levelWaves(L){
-  const li=(L-1)%LOCS.length, loc=LOCS[li], st=stageOf(L), nm=a=>[...new Set(a)].map(k=>T('boss')[k]).join(T('and'));
-  if(st===STAGES){ const type=['snowman','plow','iceberg'][li];
-    return [2,3,3,4].map((c,i)=>({n:0,boss:Array(c).fill(type),sized:true,main:i===3,say:(i===0?T('finalSay'):'')+T('boss')[type]+' ×'+c})); }
-  const n=Math.min(9,3+L), m=Math.max(2,n-1-st), mid=bossList(loc.mid,st), main=bossList(loc.main,Math.max(st,loc.main.length));
-  return [{n,say:T('w1')},{n,say:T('w2')},{n:Math.min(10,n+1),say:T('w3')},
-    {n:m,boss:mid,say:T('bossP')+nm(mid)},{n:m,boss:main,main:true,say:nm(main)+(main.includes('snowman')?T('blizzard'):'')}];
+  const li=(L-1)%LOCS.length, st=stageOf(L), type=LEVEL_BOSS[li], n=Math.min(9,3+st);
+  const boss={n:Math.min(6,2+st),boss:Array(st).fill(type),main:true,sized:st>1,say:T('bossP')+T('boss')[type]+(st>1?' ×'+st:'')+(type==='snowman'?T('blizzard'):'')};
+  if(li===0) return [{n,say:T('w1')},{n,say:T('w2')},{n:n+1,say:T('w2')},{n:n+1,say:T('w3')},boss];
+  return [boss];
 }
 // укрытия: дерево и куст; снежок застревает в них, если летит ниже их верхушки
 // w: ширина, h: высота, до которой застревают снежки, cap: сколько врагов за ним прячется, narrow: прятаться прямо за серединой
@@ -601,7 +632,7 @@ function newGame(){
   layoutButtons(); startLevel(1);
 }
 function startLevel(L){
-  S.level=L; S.loc=LOCS[(L-1)%LOCS.length]; S.waves=levelWaves(L);
+  S.level=L; S.loc=LOCS[(L-1)%LOCS.length]; S.waves=levelWaves(L); S.avalLeft=RUN.aval?1:0;
   S.covers=S.loc.covers.map(([kind,x,y,side])=>({kind,x,y,side,w:CK[kind].w,hits:[]}));
   S.debris=[]; S.parts=[];
   startWave(1);
@@ -615,8 +646,8 @@ function startWave(n){
   S.kids.forEach((k,i)=>{ if(k.hp<=0||k.state==='cheer'){ k.state='idle'; k.downT=0; } k.hp=k.max; k.ammo=Math.max(k.ammo,4); k.crouch=false; if(n===1){ k.x=k.tx=HOME[i][0]; k.y=k.ty=HOME[i][1]; } });
   if(!alive(S.kids[S.sel])) S.sel=0;
   S.phase='banner'; S.phaseT=S.phaseT0=2.4;
-  const st=stageOf(S.level), pre=st===STAGES?T('final')+' · ':st>1?T('stage')+st+' · ':'';
-  S.banner=n===1?pre+T('level')+S.level+': '+T('loc')[S.loc.key]:wv.main?T('mainBoss'):wv.boss?T('bossB'):T('wave')+n; S.bannerSub=wv.say;
+  const st=stageOf(S.level), pre=T('stage')+st+' · ';
+  S.banner=n===1?pre+T('level')+((S.level-1)%LOCS.length+1)+': '+T('loc')[S.loc.key]:wv.main?T('mainBoss'):wv.boss?T('bossB'):T('wave')+n; S.bannerSub=wv.say;
   if(wv.boss) queueSong('wave','boss'); else if(n===1) queueSong('wave',S.loc.song); else if(!(A.song&&A.song.name==='bossWin')) music(S.loc.song);
   setTimeout(()=>{ if(!S) return;
     if(boss.includes('snowman')) voice('boss_snowman',1.1); else if(boss.includes('iceberg')) voice('boss_iceberg',1); else if(!boss.length) voice('gang_go',0.9);
@@ -626,8 +657,8 @@ function startWave(n){
 function levelClear(){
   const bonus=300*S.level; S.score+=bonus; bank();
   if(S.level>=LAST_LEVEL){ endGame(true); return; }
-  S.phase='clear'; S.phaseT=S.phaseT0=4.6; S.aim=null; S.balls=[]; S.fwT=0; S.whirl=0;
-  S.banner=T('level')+S.level+T('cleared'); S.bannerSub=T('bonus')+bonus+T('next')+T('loc')[LOCS[S.level%LOCS.length].key];
+  S.phase='clear'; S.phaseT=S.phaseT0=6.2; S.aim=null; S.balls=[]; S.fwT=0; S.whirl=0;
+  const li=(S.level-1)%LOCS.length; S.banner=li===LOCS.length-1?T('stage')+stageOf(S.level)+T('cleared'):T('level')+(li+1)+T('cleared'); S.bannerSub=T('bonus')+bonus+T('next')+T('loc')[LOCS[S.level%LOCS.length].key];
   queueSong('level'); voice('kid_hooray',1); setTimeout(()=>{ if(S) bark(); },700);
 }
 // снежинки в копилку: всё, что набрано с прошлого раза
@@ -686,13 +717,15 @@ function knockOut(e){
   if(e.side==='e'){ const pts=Math.round((e.type==='snowman'?300:e.type==='plow'?250:e.type==='iceberg'?120:50)*(e.sz||1)); S.score+=pts; toast(e.x,e.y-e.h*depth(e.y)-34,T('ko')+pts,'#ffb36b');
     // последний босс волны повержен: фанфары и салют над ним
     if(e.type!=='gang'&&!S.enemies.some(o=>o!==e&&o.type!=='gang'&&alive(o))&&S.phase==='play'){
-      playSong('bossWin'); toast(W/2,200,T('bossDown'),'#ffe08a'); for(let i=0;i<3;i++) setTimeout(()=>{ if(S) firework(e.x+rnd(-80,80),e.y-e.h*depth(e.y)-rnd(20,90)); },i*260); } }
+      playSong('bossWin'); toast(W/2,200,T('bossDown'),'#ffe08a'); for(let i=0;i<3;i++) setTimeout(()=>{ if(S) firework(e.x+rnd(-80,80),e.y-e.h*depth(e.y)-rnd(20,90),null,true); },i*260); } }
 }
 // салют: разлёт цветных искр с хвостами
 const FW_COLS=['#ff5a5a','#ffd23f','#3fd9ff','#9b6bff','#5aff8a','#ff8ad8','#ffffff'];
-function firework(x,y,cols){ cols=cols||FW_COLS; const c=cols[Math.floor(Math.random()*cols.length)], n=34;
-  for(let i=0;i<n;i++){ const a=i/n*Math.PI*2+rnd(-0.05,0.05), v=rnd(120,230); S.parts.push({fw:true,x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,t:0,life:rnd(0.9,1.3),r:rnd(1.8,3),col:Math.random()<0.2?'#ffffff':c}); }
-  S.parts.push({ring:true,flash:true,x,y,t:0,life:0.25,col:c}); sfx.pop(); }
+// big: большой залп на пол-экрана (два кольца искр и долгий хвост)
+function firework(x,y,cols,big){ cols=cols||FW_COLS; const c=cols[Math.floor(Math.random()*cols.length)], c2=cols[Math.floor(Math.random()*cols.length)], n=big?70:40;
+  for(let i=0;i<n;i++){ const a=i/n*Math.PI*2+rnd(-0.05,0.05), v=big?rnd(300,470):rnd(150,260); S.parts.push({fw:true,x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,t:0,life:big?rnd(1.4,2):rnd(1,1.4),r:big?rnd(2.6,3.8):rnd(2,3),col:Math.random()<0.2?'#ffffff':c}); }
+  if(big) for(let i=0;i<28;i++){ const a=i/28*Math.PI*2, v=rnd(140,200); S.parts.push({fw:true,x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,t:0,life:rnd(1.1,1.5),r:3,col:c2}); }
+  S.parts.push({ring:true,flash:true,x,y,t:0,life:big?0.35:0.25,col:c,big}); sfx.pop(); }
 function selectNext(){ for(let i=1;i<=S.kids.length;i++){ const j=(S.sel+i)%S.kids.length; if(alive(S.kids[j])){ S.sel=j; return; } } }
 function explode(x,y){
   sfx.boom(); splat(x,y-10,34,'#ffffff',320); S.parts.push({ring:true,x,y,t:0,life:.45});
@@ -764,7 +797,10 @@ function stepEnemies(dt){
   for(const e of S.enemies){
     e.st+=dt; e.flash=Math.max(0,e.flash-dt); e.kx*=0.85; e.ky*=0.85;
     if(e.state==='down'){ e.downT+=dt; continue; }
-    if(S.phase==='over'&&!S.won){ if(e.state!=='dance'){ e.state='dance'; e.st=rnd(0,1); } continue; }
+    if(S.phase==='over'&&!S.won){ if(e.state!=='dance'){ e.state='dance'; e.st=rnd(0,1); }
+      // дразнилки над головами
+      if(alive(e)&&Math.random()<dt*0.32){ const tl=T('taunts'); toast(e.x,e.y-e.h*depth(e.y)-24,tl[Math.floor(Math.random()*tl.length)],'#bfe8ff'); if(Math.random()<0.3) voice('gang_haha',0.6); }
+      continue; }
     if(e.frozenT>0){ e.frozenT-=dt; continue; }
     if(e.delay>0){ e.delay-=dt; continue; }
     if(e.state==='hit'){ if(e.st>0.35){ e.state='idle'; e.st=0; } continue; }
@@ -816,7 +852,7 @@ function stepHoly(dt){
 /* ================= ВВОД ================= */
 let BTN=[];
 // кнопки внизу: ружьё и лавина появляются, когда куплены в магазине
-function layoutButtons(){ const ids=['ice','bomb','hail']; if(RUN.gun) ids.push('gun'); if(SAVE.aval>0||S.avalUsed) ids.push('aval'); ids.push('holy');
+function layoutButtons(){ const ids=['ice','bomb','hail']; if(RUN.gun) ids.push('gun'); if(RUN.aval) ids.push('aval'); ids.push('holy');
   const n=ids.length, gap=7, w=(W-22-gap*(n-1))/n; BTN=ids.map((id,i)=>({id,x:11+i*(w+gap),y:884,w,h:60})); }
 const SNDBTN={x:W-58,y:4,w:52,h:38};
 function toLocal(ev){ const r=cv.getBoundingClientRect(); return {x:(ev.clientX-r.left)/r.width*W, y:(ev.clientY-r.top)/r.height*(H+EX)-EX}; }
@@ -913,7 +949,7 @@ function pressBtn(id){
   if(id==='ice'&&S.ice>0) S.armed=S.armed==='ice'?null:'ice';
   if(id==='bomb'&&S.bomb>0) S.armed=S.armed==='bomb'?null:'bomb';
   if(id==='gun'&&S.gun>0) S.armed=S.armed==='gun'?null:'gun';
-  if(id==='aval'&&SAVE.aval>0&&!S.aval){ if(!S.enemies.some(alive)) return; SAVE.aval--; save(); S.avalUsed=true; avalanche(); }
+  if(id==='aval'&&S.avalLeft>0&&!S.aval){ if(!S.enemies.some(alive)) return; S.avalLeft--; avalanche(); }
   if(id==='hail'&&S.hail>0){ const live=S.enemies.filter(e=>alive(e)&&e.x>0&&e.x<W); if(!live.length) return; S.hail--; hail(live); }
   if(id==='holy'&&S.holy.cd<=0&&S.holy.mode!=='attack'){ const h=S.holy, live=S.enemies.filter(e=>alive(e)&&e.x>0&&e.x<W); if(!live.length) return;
     let t=live[0],bd=1e9; for(const e of live){ const d=Math.hypot(e.x-h.x,e.y-h.y); if(d<bd){ bd=d; t=e; } }
@@ -923,7 +959,8 @@ function pressBtn(id){
 /* ================= ЦИКЛ ================= */
 function update(dt){
   S.t+=dt;
-  for(const f of S.flakes){ f.y+=f.v*dt*(S.blizzard?2.2:1); f.x+=(S.wind*40+Math.sin(S.t+f.s)*8)*dt; if(f.y>H){ f.y=-4-rnd(0,EX); f.x=rnd(0,W); } if(f.x<0) f.x+=W; if(f.x>W) f.x-=W; }
+  const party=S.phase==='clear';
+  for(const f of S.flakes){ f.y+=f.v*dt*(party?3.2:S.blizzard?2.2:1); f.x+=(S.wind*40+Math.sin(S.t+f.s)*8+(party?180:0))*dt; if(f.y>H){ f.y=-4-rnd(0,EX); f.x=rnd(0,W); } if(f.x<0) f.x+=W; if(f.x>W) f.x-=W; }
   if(S.phase==='banner'){ S.phaseT-=dt; if(S.phaseT<=0) S.phase='play'; }
   if(S.phase==='clear'){ S.phaseT-=dt; if(S.phaseT<=0){ startLevel(S.level+1); return; } }
   if(S.aim&&S.aim.mode==='aim'){ const seg=Math.ceil(aimVec(S.aim).pw*10); if(seg!==S.aim.seg){ S.aim.seg=seg; sfx.tick(seg); } }
@@ -932,7 +969,9 @@ function update(dt){
   for(const p of S.parts){ p.t+=dt; if(p.fw){ p.x+=p.vx*dt; p.y+=p.vy*dt; p.vx*=0.97; p.vy=p.vy*0.97+110*dt; } else if(!p.ring&&!p.dust){ p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=420*dt; } }
   // праздник: салют и снежный вихрь в конце уровня, салют банды после проигрыша
   if(S.phase==='clear'||S.phase==='over'){ S.fwT=(S.fwT||0)-dt; S.whirl=(S.whirl||0)+dt;
-    if(S.fwT<=0){ S.fwT=rnd(0.25,0.45); firework(rnd(60,W-60),rnd(90,440)-(S.phase==='over'?0:0),S.phase==='over'&&!S.won?['#3fd9ff','#7fb2ff','#ffffff','#9b6bff']:null); } }
+    if(S.fwT<=0){ const lose=S.phase==='over'&&!S.won; S.fwT=lose?rnd(0.3,0.5):rnd(0.22,0.38);
+      // не больше ~900 искр одновременно, чтобы телефон не тормозил
+      if(S.parts.length<900) for(let i=0;i<(lose?1:2);i++) firework(rnd(70,W-70),rnd(60,460),lose?['#3fd9ff','#7fb2ff','#ffffff','#9b6bff']:null,!lose); } }
   S.parts=S.parts.filter(p=>p.t<p.life);
   for(const t of S.texts) t.t+=dt; S.texts=S.texts.filter(t=>t.t<1.2);
   for(const m of S.marks) m.t+=dt; S.marks=S.marks.filter(m=>m.t<0.6);
@@ -946,6 +985,8 @@ function endGame(won){
   S.phase='over'; S.won=won; S.endT=won?6:5.5; S.aim=null; S.balls=[]; S.fwT=0.3; bank();
   // вся игра пройдена: автоприцел и ружьё заканчиваются
   if(won){ RUN.aim=false; RUN.gun=false; }
+  // лавина пропадает после проигрыша, одежда без регистрации — после проигрыша или конца игры
+  if(!won||S.level>=LAST_LEVEL) RUN.aval=false; dropGuestClothes();
   playSong(won?'win':'lose');
   if(won){ voice('kid_hooray',1); setTimeout(()=>{ bark(); voice('kid_hooray',1); },900); }
   else { voice('gang_haha',1); setTimeout(()=>voice('gang_haha',1),1100); }
@@ -1088,9 +1129,11 @@ function drawCover(c){
   // снежные пятна от попаданий
   ctx.fillStyle='#ffffff'; for(const [dx,z,r] of c.hits){ ctx.beginPath(); ctx.arc(x+dx*0.85,y-z,r*sc,0,7); ctx.fill(); }
 }
+// какой трюк сейчас делает победившая банда: у каждого свой порядок (0 танец, 1 пируэт, 2 сальто, 3 виляет попой, 4 хохочет)
+function trickOf(e){ const T0=1.6, c=e.st+(e.phase||0)*0.9, i=Math.floor(c/T0); return {m:[0,1,0,3,0,2,4][(i+Math.floor(e.phase||0))%7], k:(c%T0)/T0}; }
 function poseOf(e,t){
   // процедурная анимация целой картинки: подпрыгивание, наклон, сжатие
-  let lift=0,rot=0,sx=1,sy=1,ox=e.kx||0,oy=e.ky||0;
+  let lift=0,rot=0,sx=1,sy=1,ox=e.kx||0,oy=e.ky||0,mid=false;
   const ph=t*1+(e.phase||0);
   switch(e.state){
     case 'idle': sy=1+0.022*Math.sin(ph*3.2); sx=1-0.012*Math.sin(ph*3.2); rot=0.03*Math.sin(ph*1.6); break;
@@ -1100,10 +1143,17 @@ function poseOf(e,t){
     case 'hit': { const k=e.st/0.35; rot=0.25*Math.sin(k*Math.PI*3)*(1-k); sy=1-0.12*(1-k); break; }
     case 'cheer': { const c=Math.abs(Math.sin(t*5+(e.phase||0))); lift=c*10; sy=0.97+0.06*c; rot=0.1*Math.sin(t*4+(e.phase||0)); break; }
     // танец банды после победы: прыжки, покачивания и развороты в такт
-    case 'dance': { const w=e.st*6.5, c=Math.abs(Math.sin(w)); lift=c*16; rot=0.22*Math.sin(w*0.5); sy=0.95+0.08*c; sx=Math.sin(e.st*1.7)>0?1:-1; break; }
+    // после победы банды: танец и трюки по очереди — пируэт, сальто, виляние попой, хохот
+    case 'dance': { const tr=trickOf(e), k=tr.k, side=(e.phase||0)>3?1:-1;
+      if(tr.m===0){ const w=e.st*6.5, c=Math.abs(Math.sin(w)); lift=c*16; rot=0.22*Math.sin(w*0.5); sy=0.95+0.08*c; sx=Math.sin(e.st*1.7)>0?1:-1; }
+      else if(tr.m===1){ lift=Math.sin(k*Math.PI)*46; sx=Math.cos(k*Math.PI*4); }
+      else if(tr.m===2){ lift=Math.sin(k*Math.PI)*60; rot=side*k*Math.PI*2; mid=true; }
+      else if(tr.m===3){ const b=Math.min(1,k*5)*Math.min(1,(1-k)*5); rot=side*1.05*b; sx=1+0.14*Math.sin(e.st*34)*b; sy=1-0.06*b; }
+      else { rot=0.14*Math.sin(e.st*42); lift=Math.abs(Math.sin(e.st*13))*7; sy=0.94+0.06*Math.sin(e.st*22); }
+      break; }
   }
   if(e.crouch){ sy*=0.68; sx*=1.08; rot=0.04*Math.sin(t*14); }
-  return {lift,rot,sx,sy,ox,oy};
+  return {lift,rot,sx,sy,ox,oy,mid};
 }
 function drawEnt(e){
   const plow=e.type==='plow', img=IMG[e.key]; if(!plow&&!img) return;
@@ -1126,7 +1176,9 @@ function drawEnt(e){
   if(plow){ P.rot*=0.15; P.sx=1; P.sy=1; P.lift=e.state==='run'?Math.abs(Math.sin(t*16))*1.5:e.state==='dance'?P.lift*0.6:0; }
   // у куклы руки и ноги двигаются сами, поэтому целиком её почти не качаем
   if(pup&&e.state!=='hit') P.rot*=0.35;
-  ctx.translate(e.x+P.ox,e.y+P.oy-P.lift-(e.jump||0)); ctx.rotate(P.rot); ctx.scale(P.sx*(e.side==='p'?e.face:1),P.sy);
+  // сальто крутится вокруг середины тела, остальное — вокруг ног
+  const pv=P.mid?dh*0.5:0;
+  ctx.translate(e.x+P.ox,e.y+P.oy-P.lift-(e.jump||0)-pv); ctx.rotate(P.rot); ctx.translate(0,pv); ctx.scale(P.sx*(e.side==='p'?e.face:1),P.sy);
   if(plow) drawPlow(e,dh,false); else if(pup&&!(e.frozenT>0)) drawPuppet(e,img,dw,dh,t); else ctx.drawImage(img,-dw/2,-dh,dw,dh);
   // вспышка и лёд через готовые силуэты (ctx.filter не работает на iPhone)
   const sw=IMG[e.key+'#w'], si=IMG[e.key+'#i'];
@@ -1254,7 +1306,12 @@ function pupPose(e,t){
     case 'throw': { const k=Math.min(1,e.st/0.28); q.arm=k<0.4?-0.75+2.3*k/0.4:1.55*(1-(k-0.4)/0.6); q.head=0.08*Math.sin(k*Math.PI); q.legL=-0.12*Math.sin(k*Math.PI); q.ball=e.st<0.05; break; }
     case 'hit': { const k=Math.min(1,e.st/0.35); q.head=-0.3*Math.sin(k*Math.PI)*(1-k*0.5); q.arm=0.8*Math.sin(k*Math.PI*3)*(1-k); q.bob=3*(1-k); break; }
     case 'cheer': { const c=Math.sin(t*5+(e.phase||0)); q.arm=1.1+0.25*c; q.head=0.08*c; q.legL=0.12*c; q.legR=-0.12*c; break; }
-    case 'dance': { const w=e.st*6.5; q.legL=0.45*Math.sin(w); q.legR=0.45*Math.sin(w+Math.PI); q.arm=0.9+0.6*Math.sin(w*1.5); q.head=0.16*Math.sin(w); q.bob=-4*Math.abs(Math.sin(w)); break; }
+    case 'dance': { const tr=trickOf(e), w=e.st*6.5;
+      if(tr.m===3){ q.arm=1.3+0.4*Math.sin(e.st*16); q.head=-0.2; q.legL=0.15; q.legR=-0.15; }
+      else if(tr.m===4){ q.arm=-0.5+0.15*Math.sin(e.st*30); q.head=0.25*Math.sin(e.st*20); }
+      else if(tr.m===1||tr.m===2){ q.arm=1.4; q.legL=0.5; q.legR=-0.5; }
+      else { q.legL=0.45*Math.sin(w); q.legR=0.45*Math.sin(w+Math.PI); q.arm=0.9+0.6*Math.sin(w*1.5); q.head=0.16*Math.sin(w); q.bob=-4*Math.abs(Math.sin(w)); }
+      break; }
   }
   if(e.crouch){ q.arm=0.5+0.2*Math.sin(t*14); q.head=0.1; }
   return q;
@@ -1358,7 +1415,7 @@ function hud(){
   ctx.save(); ctx.translate(0,-EX);
   ctx.fillStyle='rgba(14,26,46,.72)'; ctx.fillRect(0,0,W,46);
   ctx.fillStyle='#fff'; ctx.font='22px '+FONT_D; ctx.textBaseline='middle';
-  ctx.textAlign='left'; ctx.fillText(T('lv')+S.level+T('waveH')+S.wave+'/'+S.waves.length,14,24);
+  ctx.textAlign='left'; ctx.fillText(T('stage')+stageOf(S.level)+' · '+T('lv')+((S.level-1)%LOCS.length+1)+' · '+S.wave+'/'+S.waves.length,14,24);
   ctx.textAlign='right'; ctx.fillText(String(Math.round(S.score)),W-70,24);
   // кнопка звука
   ctx.strokeStyle='#fff'; ctx.fillStyle='#fff'; ctx.lineWidth=2.5; const sx=W-44,sy=24;
@@ -1370,7 +1427,7 @@ function hud(){
   // когда кнопок больше четырёх, значок сверху, подпись снизу
   const compact=BTN.length>4;
   for(const b of BTN){
-    const on=b.id==='ice'?S.ice>0:b.id==='bomb'?S.bomb>0:b.id==='hail'?S.hail>0:b.id==='gun'?S.gun>0:b.id==='aval'?SAVE.aval>0&&!S.aval:S.holy.cd<=0, armed=S.armed===b.id||(b.id==='holy'&&S.holy.mode==='attack');
+    const on=b.id==='ice'?S.ice>0:b.id==='bomb'?S.bomb>0:b.id==='hail'?S.hail>0:b.id==='gun'?S.gun>0:b.id==='aval'?S.avalLeft>0&&!S.aval:S.holy.cd<=0, armed=S.armed===b.id||(b.id==='holy'&&S.holy.mode==='attack');
     ctx.fillStyle=armed?'#ff7a1a':on?'#24406a':'#1a2a44'; rr(b.x,b.y,b.w,b.h,14); ctx.fill();
     if(b.id==='holy'&&S.holy.cd>0&&S.holy.mode!=='attack'){ ctx.fillStyle='rgba(255,255,255,.12)'; ctx.fillRect(b.x,b.y,b.w*(1-S.holy.cd/14),b.h); }
     const cx=compact?b.x+b.w/2:b.x+24, cy=compact?b.y+21:b.y+b.h/2;
@@ -1383,7 +1440,7 @@ function hud(){
     if(b.id==='bomb'){ ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(cx,cy+2,11,0,7); ctx.fill(); ctx.strokeStyle='#e0452b'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(cx+6,cy-7); ctx.quadraticCurveTo(cx+12,cy-16,cx+16,cy-12); ctx.stroke(); }
     if(b.id==='holy'){ ctx.fillStyle='#fff'; ctx.beginPath(); ctx.ellipse(cx,cy+5,8,6.5,0,0,7); ctx.fill(); for(const [dx,dy] of [[-9,-4],[-3,-10],[4,-10],[10,-4]]){ ctx.beginPath(); ctx.arc(cx+dx,cy+dy,3.2,0,7); ctx.fill(); } }
     if(compact) ctx.restore();
-    const lbl=b.id==='ice'?T('ice')+S.ice:b.id==='bomb'?T('bomb')+S.bomb:b.id==='hail'?T('hailB')+S.hail:b.id==='gun'?T('gunB')+S.gun:b.id==='aval'?T('avalB')+SAVE.aval:(S.holy.mode==='attack'?T('attack'):S.holy.cd>0?T('holy')+' '+Math.ceil(S.holy.cd):T('holy'));
+    const lbl=b.id==='ice'?T('ice')+S.ice:b.id==='bomb'?T('bomb')+S.bomb:b.id==='hail'?T('hailB')+S.hail:b.id==='gun'?T('gunB')+S.gun:b.id==='aval'?T('avalB')+S.avalLeft:(S.holy.mode==='attack'?T('attack'):S.holy.cd>0?T('holy')+' '+Math.ceil(S.holy.cd):T('holy'));
     ctx.fillStyle=on||armed?'#fff':'#7d8fab';
     if(compact){ ctx.textAlign='center'; let fs=13; ctx.font='800 '+fs+'px '+FONT_B; while(fs>9&&ctx.measureText(lbl).width>b.w-6){ fs--; ctx.font='800 '+fs+'px '+FONT_B; } ctx.fillText(lbl,cx,b.y+b.h-12); }
     else { ctx.textAlign='left'; ctx.font='800 16px '+FONT_B; ctx.fillText(lbl,b.x+44,cy+1); }
@@ -1409,7 +1466,7 @@ function render(){
   for(const d of S.debris) if(d.z>0) list.push({y:d.y,f:()=>drawDebris(d)});
   list.sort((a,b)=>a.y-b.y); for(const it of list) it.f();
   for(const p of S.parts){ const a=1-p.t/p.life; if(p.dust) continue;
-    if(p.flash){ ctx.globalAlpha=a*0.6; ctx.fillStyle=p.col; ctx.beginPath(); ctx.arc(p.x,p.y,40*(1-a)+10,0,7); ctx.fill(); ctx.globalAlpha=1; continue; }
+    if(p.flash){ ctx.globalAlpha=a*0.6; ctx.fillStyle=p.col; ctx.beginPath(); ctx.arc(p.x,p.y,(p.big?110:40)*(1-a)+10,0,7); ctx.fill(); ctx.globalAlpha=1; continue; }
     if(p.ring){ ctx.strokeStyle='rgba(255,255,255,'+a+')'; ctx.lineWidth=6; ctx.beginPath(); ctx.ellipse(p.x,p.y,95*(p.t/p.life+.2),40*(p.t/p.life+.2),0,0,7); ctx.stroke(); continue; }
     if(p.fw){ ctx.globalAlpha=Math.min(1,a*1.4); ctx.strokeStyle=p.col; ctx.lineWidth=p.r; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.x-p.vx*0.06,p.y-p.vy*0.06); ctx.stroke(); ctx.lineCap='butt'; ctx.globalAlpha=1; continue; }
     ctx.globalAlpha=a; ctx.fillStyle=p.col; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,7); ctx.fill(); ctx.globalAlpha=1; }
@@ -1422,11 +1479,17 @@ function render(){
     ctx.fillStyle='#ffffff'; for(let i=0;i<26;i++){ const x=(i*41+t*260)%W; ctx.beginPath(); ctx.arc(x,fy+10+Math.sin(i*1.7+t*14)*14,12+(i%4)*5,0,7); ctx.fill(); }
     ctx.globalAlpha=1; }
   // снежный вихрь: воронка из снежинок, узкая внизу и широкая вверху
-  if(S.phase==='clear'&&S.whirl){ const w=S.whirl, cx=W/2+Math.sin(w*1.3)*70, cy=640, k=Math.min(1,w/0.6)*Math.min(1,S.phaseT/0.6);
+  if(S.phase==='clear'&&S.whirl){ const w=S.whirl, k=Math.min(1,w/0.5)*Math.min(1,S.phaseT/0.6);
     ctx.fillStyle='#ffffff';
-    for(let i=0;i<160;i++){ const f=i/160, ang=w*(5-f*2.5)+i*2.399, rad=14+f*170;
-      ctx.globalAlpha=k*(0.3+0.6*(1-f)); ctx.beginPath(); ctx.arc(cx+Math.cos(ang)*rad,cy-f*380+Math.sin(ang)*rad*0.25,1.8+3*(1-f),0,7); ctx.fill(); }
-    ctx.globalAlpha=1; }
+    // два больших вихря гуляют по полю
+    for(const [cx,cy,sp] of [[W*0.3+Math.sin(w*1.3)*90,700,1],[W*0.72+Math.cos(w*1.1)*80,560,-1]])
+      for(let i=0;i<200;i++){ const f=i/200, ang=sp*w*(6-f*3)+i*2.399, rad=16+f*230;
+        ctx.globalAlpha=k*(0.35+0.6*(1-f)); ctx.beginPath(); ctx.arc(cx+Math.cos(ang)*rad,cy-f*460+Math.sin(ang)*rad*0.25,2+3.5*(1-f),0,7); ctx.fill(); }
+    // метель: косые полосы снега летят через весь экран
+    ctx.strokeStyle='#ffffff'; ctx.lineWidth=2.2; ctx.lineCap='round';
+    for(let i=0;i<150;i++){ const x=((i*97+w*620)%(W+240))-120, y=((i*157+w*240)%(H+EX))-EX;
+      ctx.globalAlpha=k*(0.35+0.4*((i%5)/5)); ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x-26,y-9); ctx.stroke(); }
+    ctx.lineCap='butt'; ctx.globalAlpha=1; }
   if(S.blizzard){ ctx.fillStyle='rgba(235,244,255,'+(0.14+0.08*Math.sin(S.t*1.3))+')'; ctx.fillRect(0,46,W,828); }
   ctx.textAlign='center';
   for(const t of S.texts){ const a=1-t.t/1.2; ctx.globalAlpha=a; ctx.font='20px '+FONT_D; ctx.lineWidth=4; ctx.strokeStyle='#13213a'; ctx.strokeText(t.txt,t.x,t.y-t.t*40); ctx.fillStyle=t.col; ctx.fillText(t.txt,t.x,t.y-t.t*40); ctx.globalAlpha=1; }
@@ -1480,40 +1543,76 @@ function thumb(key){ if(thumbs[key]) return thumbs[key]; const img=IMG[key]; if(
   c.width=w; c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); return thumbs[key]=c.toDataURL(); }
 function renderShop(){
   $('shopTitle').textContent=T('shop'); $('coins').textContent='❄ '+SAVE.coins; $('shopClose').textContent=T('close');
-  const c=SAVE.coins, item=(ic,name,desc,btn)=>'<div class="item"><div class="ic">'+ic+'</div><div class="info"><b>'+name+'</b><small>'+desc+'</small></div>'+btn+'</div>';
-  const buyBtn=(act,price)=>'<button class="buy" type="button" data-act="'+act+'"'+(c<price?' disabled':'')+'>'+T('buy')+' ❄'+price+'</button>';
+  const item=(act,ic,name,desc,btn)=>'<div class="item" data-act="'+act+'"><div class="ic">'+ic+'</div><div class="info"><b>'+name+'</b><small>'+desc+'</small></div>'+btn+'</div>';
+  const look=(act,price)=>'<button class="buy" type="button" data-act="'+act+'">❄'+price+'</button>';
+  const on='<button class="buy ok" type="button" disabled>'+T('active')+'</button>';
   let h=PROFILE?'':'<div class="note"><span>'+T('shopNote')+'</span><button class="buy" type="button" data-act="reg">'+T('shopReg')+'</button></div>';
-  h+=item('🏔️',T('avalN'),T('avalD')+' '+T('have')+SAVE.aval,buyBtn('aval',PRICE.aval));
-  h+=item('🔫',T('gunN'),T('gunD'),RUN.gun?'<button class="buy ok" type="button" disabled>'+T('active')+'</button>':buyBtn('gun',PRICE.gun));
-  // автоприцел после покупки работает всегда, до конца игры
-  h+=item('🎯',T('aimN'),T('aimD'),RUN.aim?'<button class="buy ok" type="button" disabled>'+T('active')+'</button>':buyBtn('aim',PRICE.aim));
+  h+=item('aval','🏔️',T('avalN'),T('avalD'),RUN.aval?on:look('aval',PRICE.aval));
+  h+=item('gun','🔫',T('gunN'),T('gunD'),RUN.gun?on:look('gun',PRICE.gun));
+  h+=item('aim','🎯',T('aimN'),T('aimD'),RUN.aim?on:look('aim',PRICE.aim));
   h+='<h3>'+T('skinsT')+'</h3>';
   for(const base in SKINS){ const cur=SAVE.skins[base]||'';
-    let tiles='<button class="skin'+(cur===''?' on':'')+'" type="button" data-act="wear" data-base="'+base+'" data-id=""><img alt="" src="'+thumb(base)+'">'+(cur===''?T('worn'):T('basic'))+'</button>';
-    for(const [id,price] of SKINS[base]){ const own=SAVE.own[base+'@'+id], on=cur===id;
-      tiles+='<button class="skin'+(on?' on':'')+'" type="button" data-act="'+(own?'wear':'skin')+'" data-base="'+base+'" data-id="'+id+'"'+(!own&&c<price?' disabled':'')+'><img alt="" src="'+thumb(base+'@'+id)+'">'
-        +'<span>'+T('skinName')[id]+'</span><span class="pr">'+(on?T('worn'):own?T('wear'):'❄'+price)+'</span></button>'; }
+    let tiles='<button class="skin'+(cur===''?' on':'')+'" type="button" data-act="wear" data-base="'+base+'" data-id=""><img alt="" src="'+thumb(base)+'"><span>'+T('basic')+'</span><span class="pr">'+(cur===''?T('worn'):T('wear'))+'</span></button>';
+    for(const [id,price] of SKINS[base]){ const own=SAVE.own[base+'@'+id], is=cur===id;
+      tiles+='<button class="skin'+(is?' on':'')+'" type="button" data-act="skin" data-base="'+base+'" data-id="'+id+'"><img alt="" src="'+thumb(base+'@'+id)+'">'
+        +'<span>'+T('skinName')[id]+'</span><span class="pr">'+(is?T('worn'):own?T('wear'):'❄'+price)+'</span></button>'; }
     h+='<div class="kid"><b>'+T('names')[base]+'</b><div class="skins">'+tiles+'</div></div>'; }
   $('shopList').innerHTML=h;
 }
 function updateShopBtns(){ for(const id of ['shopBtn','shopBtn2']) $(id).textContent=T('shop')+' ❄'+SAVE.coins; }
-function openShop(){ audioInit(); renderShop(); $('shop').hidden=false; $('shopList').scrollTop=0; }
-$('shopList').addEventListener('click',ev=>{ const b=ev.target.closest('button'); if(!b||b.disabled) return; const act=b.dataset.act, base=b.dataset.base, id=b.dataset.id;
+function openShop(){ audioInit(); renderShop(); $('shop').hidden=false; $('pv').hidden=true; $('shopList').scrollTop=0; }
+// крупный просмотр: сначала смотришь, потом подтверждаешь покупку
+let PV=null;
+function openPreview(act,base,id){
+  const skin=act==='skin', key=skin?base+'@'+id:null, price=skin?SKINS[base].find(s=>s[0]===id)[1]:PRICE[act], own=skin&&SAVE.own[key], worn=skin&&SAVE.skins[base]===id;
+  PV={act,base,id,key,price,own,t:0};
+  $('pvCv').hidden=!skin; $('pvIc').hidden=skin; $('pvIc').textContent={aval:'🏔️',gun:'🔫',aim:'🎯'}[act]||'';
+  $('pvName').textContent=skin?T('names')[base]+' · '+T('skinName')[id]:T(act+'N'); $('pvDesc').textContent=skin?'':T(act+'D');
+  $('pvHave').textContent=T('coinsLbl')+': ❄'+SAVE.coins;
+  const ok=$('pvOk'); ok.disabled=false;
+  if(worn){ ok.textContent=T('worn'); ok.disabled=true; }
+  else if(own) ok.textContent=T('wear');
+  else if(SAVE.coins<price){ ok.textContent=T('noCoins')+' ❄'+price; ok.disabled=true; }
+  else ok.textContent=T('buy')+' ❄'+price;
+  $('pvNo').textContent=T('regCancel'); $('pv').hidden=false;
+  if(skin) requestAnimationFrame(pvFrame);
+}
+// бегущая примерка: боец в новой одежде стоит, идёт, замахивается, бросает и радуется
+function pvFrame(ts){
+  if(!PV||!PV.key||$('pv').hidden) return;
+  const img=IMG[PV.key], cv2=$('pvCv'); if(!img) return;
+  PV.t=(PV.t||0)+1/60; const tt=PV.t%6, st=tt<1.6?'idle':tt<3?'run':tt<3.45?'windup':tt<3.75?'throw':tt<4.6?'idle':'cheer';
+  const e={key:PV.key,side:'p',state:st,st:st==='windup'?tt-3:st==='throw'?tt-3.45:st==='run'?tt-1.6:tt,phase:0,ammo:3,crouch:false};
+  const main=ctx, s0=S; ctx=cv2.getContext('2d'); if(!S) S={t:0,aim:null};
+  ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,cv2.width,cv2.height);
+  ctx.fillStyle='rgba(10,20,40,.35)'; ctx.beginPath(); ctx.ellipse(160,358,70,12,0,0,7); ctx.fill();
+  const dh=330, dw=img.width/img.height*dh; ctx.translate(160,360); if(st==='cheer') ctx.translate(0,-Math.abs(Math.sin(PV.t*6))*14);
+  try{ if(RIGC[PV.key]) drawPuppet(e,img,dw,dh,PV.t); else ctx.drawImage(img,-dw/2,-dh,dw,dh); } finally { ctx=main; S=s0; }
+  requestAnimationFrame(pvFrame);
+}
+function buyPreview(){ if(!PV) return; const {act,base,id,key,price,own}=PV;
+  if(act==='skin'){ if(!own){ if(SAVE.coins<price) return; SAVE.coins-=price; SAVE.own[key]=true; } SAVE.skins[base]=id; }
+  else { if(SAVE.coins<price) return; SAVE.coins-=price; RUN[act]=true; }
+  save(); sfx.click(); $('pv').hidden=true; PV=null; renderShop(); updateShopBtns(); }
+$('pvOk').addEventListener('click',buyPreview);
+$('pvNo').addEventListener('click',()=>{ $('pv').hidden=true; PV=null; });
+$('pv').addEventListener('click',ev=>{ if(ev.target===$('pv')){ $('pv').hidden=true; PV=null; } });
+$('shopList').addEventListener('click',ev=>{ const b=ev.target.closest('button,.item'); if(!b||b.disabled) return; const act=b.dataset.act, base=b.dataset.base, id=b.dataset.id;
   if(act==='reg'){ openReg(); return; }
-  if(act==='aval'&&SAVE.coins>=PRICE.aval){ SAVE.coins-=PRICE.aval; SAVE.aval++; }
-  else if(act==='gun'&&SAVE.coins>=PRICE.gun){ SAVE.coins-=PRICE.gun; RUN.gun=true; }
-  else if(act==='aim'&&SAVE.coins>=PRICE.aim){ SAVE.coins-=PRICE.aim; RUN.aim=true; }
-  else if(act==='skin'){ const price=SKINS[base].find(s=>s[0]===id)[1]; if(SAVE.coins<price) return; SAVE.coins-=price; SAVE.own[base+'@'+id]=true; SAVE.skins[base]=id; }
-  else if(act==='wear'){ if(id) SAVE.skins[base]=id; else delete SAVE.skins[base]; }
-  else return;
-  save(); sfx.click(); renderShop(); updateShopBtns(); });
+  if(act==='wear'&&!id){ delete SAVE.skins[base]; save(); sfx.click(); renderShop(); return; }
+  if(act==='skin'||(act in PRICE&&!RUN[act])) openPreview(act,base,id); });
 /* ================= РЕГИСТРАЦИЯ (простая: имя игрока) ================= */
 function updateProfBtn(){ $('profBtn').textContent=PROFILE?T('player')+PROFILE.name:T('regBtn'); }
-function openReg(){ $('regTitle').textContent=T('regTitle'); $('regText').textContent=T('regText'); $('regName').placeholder=T('regName');
-  $('regName').value=PROFILE?PROFILE.name:''; $('regMsg').textContent=''; $('regSave').textContent=T('regSave'); $('regCancel').textContent=T('regCancel'); $('reg').hidden=false;
-  setTimeout(()=>{ try{ $('regName').focus(); }catch(e){} },50); }
-$('reg').addEventListener('submit',ev=>{ ev.preventDefault(); const name=$('regName').value.trim().slice(0,16); if(name.length<2){ $('regName').focus(); return; }
-  register(name); updateProfBtn(); updateShopBtns(); $('regMsg').textContent=T('regDone'); if(!$('shop').hidden) renderShop(); setTimeout(()=>{ $('reg').hidden=true; },900); });
+function openReg(){ $('regTitle').textContent=T('regTitle'); $('regText').textContent=T('regText'); $('regName').placeholder=T('regName'); $('regPass').placeholder=T('regPassPh');
+  $('regName').value=PROFILE?PROFILE.name:''; $('regPass').value=''; $('regMsg').textContent=''; $('regSave').textContent=T('regSave'); $('regCancel').textContent=T('regCancel');
+  $('regOut').textContent=T('regOut'); $('regOut').hidden=!PROFILE; $('reg').hidden=false;
+  setTimeout(()=>{ try{ (PROFILE?$('regPass'):$('regName')).focus(); }catch(e){} },50); }
+function afterAccount(){ updateProfBtn(); updateShopBtns(); if(!$('shop').hidden) renderShop(); }
+$('reg').addEventListener('submit',ev=>{ ev.preventDefault(); const name=$('regName').value.trim().slice(0,16), pass=$('regPass').value.slice(0,6);
+  if(name.length<2||!pass){ $('regMsg').textContent=T('regShort'); return; }
+  const r=login(name,pass); if(r==='bad'){ $('regMsg').textContent=T('regBad'); $('regPass').value=''; $('regPass').focus(); return; }
+  $('regMsg').textContent=r==='new'?T('regNew'):T('regIn'); afterAccount(); setTimeout(()=>{ $('reg').hidden=true; },900); });
+$('regOut').addEventListener('click',()=>{ logout(); afterAccount(); $('reg').hidden=true; });
 $('regCancel').addEventListener('click',()=>{ $('reg').hidden=true; });
 $('profBtn').addEventListener('click',ev=>{ ev.stopPropagation(); openReg(); });
 $('shopBtn').addEventListener('click',ev=>{ ev.stopPropagation(); openShop(); });
